@@ -3,6 +3,7 @@
 
     python3 planner_tools.py validate   # validate only   <- the edit-loop command
     python3 planner_tools.py state      # print current data state + code counters
+    python3 planner_tools.py preview    # serve planner.html locally at :8899
     python3 planner_tools.py build      # legacy: build .build/planner-artifact.html
 
 The `build` command is retained for reference only. Since the 2026-08-16 migration to
@@ -231,15 +232,43 @@ def state(html):
     print("\nretired codes present in data: %s" % (", ".join(stray) if stray else "none (correct)"))
 
 
+def preview(port=8899):
+    """Serve planner.html locally for in-chat preview (browser panel).
+
+    Mirrors the Workout Tracker `preview` convention (2026-08-16). The source
+    file is a full HTML document with its own <head>, so it is served as-is —
+    no host-mimicking skeleton needed, unlike the old artifact-host build.
+    """
+    import http.server
+    import socketserver
+
+    root = os.path.dirname(os.path.abspath(SRC))
+
+    class H(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=root, **kw)
+
+        def log_message(self, *a):
+            pass
+
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("127.0.0.1", port), H) as httpd:
+        print("preview at http://127.0.0.1:%d/planner.html (ctrl-c to stop)" % port)
+        httpd.serve_forever()
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "all"
-    if cmd not in ("all", "validate", "build", "state"):
+    if cmd not in ("all", "validate", "build", "state", "preview"):
         raise SystemExit(__doc__)
 
     html = open(SRC, encoding="utf-8").read()
 
     if cmd == "state":
         state(html)
+        return 0
+    if cmd == "preview":
+        preview(int(sys.argv[2]) if len(sys.argv) > 2 else 8899)
         return 0
     if cmd in ("all", "validate"):
         if not validate(html):

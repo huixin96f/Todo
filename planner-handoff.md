@@ -21,6 +21,7 @@ folder and this file.
 ```bash
 python3 planner_tools.py state      # what the list currently holds
 python3 planner_tools.py validate   # confirm it parses and has no duplicates
+python3 planner_tools.py preview    # serve planner.html at 127.0.0.1:8899 for in-chat render
 ```
 
 `state` prints the live data, the earliest pending day, and the next free code for every

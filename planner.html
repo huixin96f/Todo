@@ -1,0 +1,2322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Planner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f8;display:flex;min-height:100vh;font-size:13px;color:#1a1a2e}
+
+/* ── LEFT ── */
+#cal{flex:1;padding:24px 20px;overflow-y:auto;min-width:0}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.cal-title{font-size:22px;font-weight:800;letter-spacing:-.4px;color:#1a1a2e}
+.cal-sub{font-size:10px;font-weight:700;letter-spacing:2.5px;color:#adb5bd;text-transform:uppercase;margin-bottom:3px}
+.nav-btns{display:flex;gap:6px}
+.nav-btn{padding:6px 13px;border-radius:8px;border:1.5px solid #e2e4ea;background:#fff;font-size:14px;cursor:pointer;color:#495057;font-family:inherit}
+.nav-btn:hover{background:#f8f9fa}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#555}
+.leg-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+
+/* Unified grid */
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.day-label{text-align:center;font-size:10px;font-weight:700;color:#ced4da;letter-spacing:.8px;padding:4px 0 6px;min-width:0;overflow:hidden}
+.cell{min-height:82px;border-radius:10px;padding:7px 6px;background:#fff;border:1.5px solid #e9ecef;cursor:pointer;transition:box-shadow .12s,border-color .12s;min-width:0;overflow:hidden;width:100%}.cell:hover{box-shadow:0 2px 10px rgba(0,0,0,.09)}
+.cell.today{background:#eef2ff;border:2px solid #3B5BDB;box-shadow:0 2px 12px rgba(59,91,219,.18)}
+.cell.selected{outline:2.5px solid #3B5BDB;outline-offset:1px}
+.cell.drag-over{border:2px dashed #3B5BDB !important;background:#f0f4ff !important}
+.cell.today.drag-over{border:2px dashed #3B5BDB !important;background:#e0e7ff !important}
+.cell-num{font-size:12px;font-weight:800;color:#343a40;margin-bottom:3px;pointer-events:none}
+.cell.today .cell-num{color:#3B5BDB}
+.ev-chip{font-size:9px;font-weight:700;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab;user-select:none;display:block;width:100%;max-width:100%}
+.ev-chip:active{cursor:grabbing}
+.ev-chip.done{text-decoration:line-through;opacity:.7;cursor:default}
+.more{font-size:9px;color:#adb5bd;margin-top:1px;pointer-events:none}
+.cell.today .more{color:#748ffc}
+.mini-stats{display:flex;gap:3px;margin-top:3px;pointer-events:none}
+.stat-p{font-size:8px;background:#fff9db;color:#e67700;border-radius:3px;padding:1px 4px;font-weight:700}
+.stat-d{font-size:8px;background:#d3f9d8;color:#2f9e44;border-radius:3px;padding:1px 4px;font-weight:700}
+
+/* Day panel */
+#day-panel{margin-top:14px;background:#fff;border-radius:14px;border:1.5px solid #e9ecef;padding:18px 20px;display:none}
+#day-panel.open{display:block}
+.panel-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.panel-date{font-size:17px;font-weight:800;color:#1a1a2e}
+.panel-weekday{font-size:10px;font-weight:700;letter-spacing:2px;color:#adb5bd;text-transform:uppercase;margin-bottom:3px}
+.close-btn{background:none;border:1.5px solid #e9ecef;border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:15px;color:#868e96;flex-shrink:0}
+
+/* ev-card reorder insert indicator */
+.ev-card{border-radius:10px;padding:11px 14px;margin-bottom:8px;border:1.5px solid transparent;cursor:grab;user-select:none;position:relative;transition:transform .1s}
+.ev-card:active{cursor:grabbing}
+.ev-card.reorder-above::before{content:'';position:absolute;top:-5px;left:0;right:0;height:3px;background:#3B5BDB;border-radius:2px}
+.ev-card.reorder-below::after{content:'';position:absolute;bottom:-5px;left:0;right:0;height:3px;background:#3B5BDB;border-radius:2px}
+.ev-card.drag-source{opacity:.4}
+
+.ev-card-code{font-size:11px;font-weight:800;margin-bottom:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ev-card-title{font-size:14px;font-weight:700;color:#212529;margin-bottom:3px}
+.ev-card-title.done{text-decoration:line-through;opacity:.65}
+.ev-card-note{font-size:12px;color:#495057;margin-top:2px}
+.ev-card-done{font-size:11px;color:#2f9e44;margin-top:5px}
+.badge{font-size:9px;font-weight:700;letter-spacing:.7px;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.badge-p{background:#fff9db;color:#e67700;border:1px solid #ffe066}
+.badge-d{background:#d3f9d8;color:#2f9e44;border:1px solid #8ce99a}
+.empty-msg{font-size:13px;color:#adb5bd}
+.reorder-hint{font-size:10px;color:#ced4da;text-align:center;margin-bottom:8px;letter-spacing:.3px}
+
+/* ── RIGHT ── */
+#right{width:300px;background:#fff;border-left:1.5px solid #e9ecef;display:flex;flex-direction:column;overflow-y:auto}
+.section{padding:20px 16px;border-bottom:1.5px solid #e9ecef}
+.section:last-child{border-bottom:none;flex:1}
+.sec-label{font-size:9px;font-weight:800;letter-spacing:2.5px;color:#adb5bd;text-transform:uppercase;margin-bottom:2px}
+.sec-title{font-size:16px;font-weight:800;color:#1a1a2e;margin-bottom:12px}
+.drop-zone{min-height:40px;border-radius:10px;transition:background .15s,border .15s}
+.drop-zone.drag-over{background:#f0f4ff;border:2px dashed #3B5BDB}
+.pool-card{border-radius:10px;padding:9px 11px;margin-bottom:8px;border:1.5px solid transparent;cursor:grab;user-select:none}
+.pool-card:active{cursor:grabbing}
+.pool-card.done-card{border:1.5px solid #e9ecef!important;background:#f8f9fa!important;opacity:.55;cursor:default}
+.pool-code{font-size:10px;font-weight:800;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.pool-title{font-size:13px;font-weight:600;color:#212529}
+.pool-note{font-size:11px;color:#495057;margin-top:3px}
+.done-title{font-size:11px;font-weight:700;color:#868e96;text-decoration:line-through}
+.done-at{font-size:10px;color:#adb5bd;margin-top:2px}
+.sec-divider{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#ced4da;text-transform:uppercase;margin:10px 0 6px}
+.lt-card{border-radius:10px;border:1.5px solid #e9ecef;padding:10px 12px;margin-bottom:8px;cursor:grab;user-select:none}
+.lt-card:active{cursor:grabbing}
+.lt-title{font-size:13px;font-weight:600;color:#212529}
+.lt-note{font-size:11px;color:#868e96;margin-top:3px}
+.none-msg{font-size:12px;color:#ced4da;text-align:center;padding:10px 0}
+
+/* Drag ghost */
+.drag-ghost{position:fixed;pointer-events:none;opacity:.88;z-index:9999;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+
+/* Long-press activation pulse */
+@keyframes dragPulse{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
+.drag-activating{animation:dragPulse .3s ease-in-out;}
+
+/* ── MOBILE (portrait) ── */
+@media (max-width:700px){
+  body{flex-direction:column;font-size:12px}
+
+  /* Calendar takes full width */
+  #cal{padding:14px 10px;overflow-y:visible}
+  .cal-header{margin-bottom:12px}
+  .cal-title{font-size:17px}
+  .cal-sub{font-size:9px}
+
+  /* Nav: stack selects and arrows */
+  .nav-btns{flex-wrap:wrap;gap:4px;justify-content:flex-end}
+  #month-select,#year-select{font-size:12px;padding:5px 6px}
+  .nav-btn{padding:5px 10px;font-size:13px}
+
+  /* Smaller cells */
+  .cell{min-height:52px;padding:4px 3px;border-radius:7px}
+  .cell-num{font-size:11px;margin-bottom:1px}
+  .ev-chip{font-size:7.5px;padding:1px 3px;margin-bottom:1px}
+  .more{font-size:7.5px}
+  .mini-stats{gap:2px;margin-top:2px}
+  .stat-p,.stat-d{font-size:7px;padding:1px 3px}
+  .day-label{font-size:9px;padding:2px 0 4px}
+  .cal-grid{gap:2px}
+  .legend{gap:6px;margin-bottom:10px}
+  .leg-item{font-size:9px}
+
+  /* Day panel full width */
+  #day-panel{margin-top:10px;padding:14px 12px;border-radius:10px}
+  .panel-date{font-size:15px}
+  .ev-card{padding:9px 11px;margin-bottom:7px}
+  .ev-card-title{font-size:13px}
+
+  /* Right panel: full width below calendar, no side border */
+  #right{width:100%;border-left:none;border-top:1.5px solid #e9ecef;flex-direction:column;overflow-y:visible}
+  .section{padding:14px 12px}
+  .sec-title{font-size:14px;margin-bottom:10px}
+
+  /* Pool/lt cards slightly smaller */
+  .pool-card{padding:8px 10px}
+  .pool-title{font-size:12px}
+  .pool-note{font-size:10px}
+  .lt-card{padding:8px 10px}
+  .lt-title{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<script>
+/* ══ DATA ══
+   Each EVENTS item gets an `order` field (integer).
+   Events on the same date are sorted by `order` ascending.
+   Order is assigned at load-time if missing, and updated on reorder drags. */
+
+const EVENTS = [
+  {
+    "code": "T15",
+    "category": "Task",
+    "title": "给安琪记账",
+    "date": "2026-06-23",
+    "status": "Done",
+    "order": 2,
+    "doneAt": "2026-06-23 23:51"
+  },
+  {
+    "code": "P1",
+    "category": "Personal",
+    "title": "擦地",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 16,
+    "doneAt": "2026-06-24 17:31"
+  },
+  {
+    "code": "T11",
+    "category": "Task",
+    "title": "洗碗",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 15,
+    "doneAt": "2026-06-24 17:07"
+  },
+  {
+    "code": "T14",
+    "category": "Task",
+    "title": "洗浅色衣服",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 18,
+    "doneAt": "2026-06-24 18:01"
+  },
+  {
+    "code": "M1",
+    "category": "Meeting",
+    "title": "刘明会计签合同",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 17,
+    "doneAt": "2026-06-24 18:00"
+  },
+  {
+    "code": "T1",
+    "category": "Task",
+    "title": "记账给Eddy的支票",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 14,
+    "doneAt": "2026-06-24 16:25"
+  },
+  {
+    "code": "T18",
+    "category": "Task",
+    "title": "给Bodhi炖骨头",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 19,
+    "doneAt": "2026-06-24 18:15"
+  },
+  {
+    "code": "T19",
+    "category": "Task",
+    "title": "清理擦地机",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 20,
+    "doneAt": "2026-06-24 18:51"
+  },
+  {
+    "code": "P8",
+    "category": "Personal",
+    "title": "剪头",
+    "date": "2026-06-24",
+    "status": "Done",
+    "order": 21,
+    "doneAt": "2026-06-24 23:10"
+  },
+  {
+    "code": "T9",
+    "category": "Task",
+    "title": "自住房贷款欠一次",
+    "date": "2026-06-19",
+    "status": "Done",
+    "order": 0,
+    "doneAt": "2026-06-19"
+  },
+  {
+    "code": "T26",
+    "category": "Task",
+    "title": "更新QuickBooks",
+    "date": "2026-06-25",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-25 14:11"
+  },
+  {
+    "code": "T13",
+    "category": "Task",
+    "title": "西岛地税记账",
+    "date": "2026-06-26",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-26 10:00"
+  },
+  {
+    "code": "T27",
+    "category": "Task",
+    "title": "更新cashflow",
+    "date": "2026-06-27",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-06-27 18:41"
+  },
+  {
+    "code": "T28",
+    "category": "Task",
+    "title": "研究如何报税",
+    "date": "2026-06-29",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-06-29 14:45"
+  },
+  {
+    "code": "T22",
+    "category": "Task",
+    "title": "更新timeline",
+    "date": "2026-06-29",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-29 00:42"
+  },
+  {
+    "code": "T24",
+    "category": "Task",
+    "title": "更新安琪父母的账",
+    "date": "2026-07-08",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-08 17:36"
+  },
+  {
+    "code": "F4",
+    "category": "Follow-up",
+    "title": "提醒Makram递交延期申请",
+    "date": "2026-06-25",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-06-25 13:10"
+  },
+  {
+    "code": "S1",
+    "category": "Site Visit",
+    "title": "follow up bridge extension",
+    "date": "2026-07-16",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-16 13:00"
+  },
+  {
+    "code": "T17",
+    "category": "Task",
+    "title": "洗深色衣服",
+    "date": "2026-06-27",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-06-27 23:00"
+  },
+  {
+    "code": "T12",
+    "category": "Task",
+    "title": "去中国超市买菜",
+    "date": "2026-06-26",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-06-26 16:00"
+  },
+  {
+    "code": "T23",
+    "category": "Task",
+    "title": "浇花",
+    "date": "2026-06-27",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-27 17:47"
+  },
+  {
+    "code": "T3",
+    "category": "Task",
+    "title": "给Desjardins转账",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-29 12:05"
+  },
+  {
+    "code": "T5",
+    "category": "Task",
+    "title": "拆信",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-07 13:40"
+  },
+  {
+    "code": "T29",
+    "category": "Task",
+    "title": "记录信中账单到QuickBooks",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-07 13:40"
+  },
+  {
+    "code": "T6",
+    "category": "Task",
+    "title": "Fix municipal tax in QB",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 5
+  },
+  {
+    "code": "P6",
+    "category": "Personal",
+    "title": "叠衣服",
+    "date": "2026-07-17",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-17 19:46"
+  },
+  {
+    "code": "T21",
+    "category": "Task",
+    "title": "给刘明准备材料",
+    "date": "2026-07-05",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-05 18:35"
+  },
+  {
+    "code": "T30",
+    "category": "Task",
+    "title": "给CIBC转账",
+    "date": "2026-06-26",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-06-26 10:22"
+  },
+  {
+    "code": "T31",
+    "category": "Task",
+    "title": "研究Atomic Water case",
+    "date": "2026-06-26",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-06-26 13:35"
+  },
+  {
+    "code": "T32",
+    "category": "Task",
+    "title": "查国内工商银行账户",
+    "date": "2026-06-26",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-06-26 21:53"
+  },
+  {
+    "code": "P10",
+    "category": "Personal",
+    "title": "给Bodhi做饭",
+    "date": "2026-06-27",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-06-27 23:10"
+  },
+  {
+    "code": "T33",
+    "category": "Task",
+    "title": "给Jean-Francois发资金证明",
+    "date": "2026-06-28",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-28 17:10"
+  },
+  {
+    "code": "T34",
+    "category": "Task",
+    "title": "奥迪换胎",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-07 14:15"
+  },
+  {
+    "code": "M2",
+    "category": "Meeting",
+    "title": "meeting with BDC",
+    "date": "2026-07-08",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-08 11:10"
+  },
+  {
+    "code": "T35",
+    "category": "Task",
+    "title": "安琪提供发票",
+    "date": "2026-09-10",
+    "status": "Pending",
+    "order": 0
+  },
+  {
+    "code": "T36",
+    "category": "Task",
+    "title": "在QuickBooks里把Eddy的账付掉",
+    "date": "2026-06-29",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-29 13:52"
+  },
+  {
+    "code": "T37",
+    "category": "Task",
+    "title": "洗碗",
+    "date": "2026-06-27",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-06-27 23:59"
+  },
+  {
+    "code": "P11",
+    "category": "Personal",
+    "title": "健身",
+    "date": "2026-06-27",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-06-27 21:00"
+  },
+  {
+    "code": "F2",
+    "category": "Follow-up",
+    "title": "回复IQ要的报表",
+    "status": "Done",
+    "date": "2026-08-03",
+    "order": 101,
+    "doneAt": "2026-08-03 12:50"
+  },
+  {
+    "code": "T38",
+    "category": "Task",
+    "title": "联系物流",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 106,
+    "doneAt": "2026-07-15 22:15"
+  },
+  {
+    "code": "T39",
+    "category": "Task",
+    "title": "擦地",
+    "date": "2026-07-03",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-03 17:20"
+  },
+  {
+    "code": "T40",
+    "category": "Task",
+    "title": "报税",
+    "date": "2026-07-06",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-06 14:23"
+  },
+  {
+    "code": "T41",
+    "category": "Task",
+    "title": "各银行账户准备贷款金额",
+    "date": "2026-06-30",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-06-30 23:59"
+  },
+  {
+    "code": "T42",
+    "category": "Task",
+    "title": "查父亲的贷款金额",
+    "date": "2026-07-09",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-09 12:40"
+  },
+  {
+    "code": "T44",
+    "category": "Task",
+    "title": "买黄瓜",
+    "date": "2026-07-03",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-03 16:00"
+  },
+  {
+    "code": "T45",
+    "category": "Task",
+    "title": "做工资",
+    "date": "2026-07-05",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-05 18:20"
+  },
+  {
+    "code": "T46",
+    "category": "Task",
+    "title": "交驾照费用",
+    "date": "2026-07-06",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-06 16:25"
+  },
+  {
+    "code": "T47",
+    "category": "Task",
+    "title": "检查信箱",
+    "date": "2026-07-05",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-05 16:00"
+  },
+  {
+    "code": "P13",
+    "category": "Personal",
+    "title": "健身",
+    "date": "2026-07-05",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-05 22:00"
+  },
+  {
+    "code": "P14",
+    "category": "Personal",
+    "title": "去Costco",
+    "date": "2026-07-06",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-06 12:40"
+  },
+  {
+    "code": "T48",
+    "category": "Task",
+    "title": "报销加油小票",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-07 12:16"
+  },
+  {
+    "code": "T49",
+    "category": "Task",
+    "title": "奥迪换胎记memo",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-07-07 15:08"
+  },
+  {
+    "code": "T50",
+    "category": "Task",
+    "title": "奥迪换胎账单扫描发Hanna",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 106,
+    "doneAt": "2026-07-07 15:08"
+  },
+  {
+    "code": "T51",
+    "category": "Task",
+    "title": "学校税记memo",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-07 13:55"
+  },
+  {
+    "code": "T52",
+    "category": "Task",
+    "title": "学校税进QB",
+    "date": "2026-07-14",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-14 15:25"
+  },
+  {
+    "code": "T53",
+    "category": "Task",
+    "title": "更新cashflow projections",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 107,
+    "doneAt": "2026-07-07 17:50"
+  },
+  {
+    "code": "P15",
+    "category": "Personal",
+    "title": "洗狗的毛巾",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 108,
+    "doneAt": "2026-07-07 18:00"
+  },
+  {
+    "code": "M3",
+    "category": "Meeting",
+    "title": "Sign with MNP",
+    "date": "2026-07-08",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-08 13:15"
+  },
+  {
+    "code": "T54",
+    "category": "Task",
+    "title": "更新Timeline",
+    "date": "2026-07-07",
+    "status": "Done",
+    "order": 109,
+    "doneAt": "2026-07-07 18:50"
+  },
+  {
+    "code": "P16",
+    "category": "Personal",
+    "title": "收拾鸡腿肉",
+    "date": "2026-07-08",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-08 16:30"
+  },
+  {
+    "code": "T55",
+    "category": "Task",
+    "title": "整理夏总的付款",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-15 22:00"
+  },
+  {
+    "code": "P17",
+    "category": "Personal",
+    "title": "剪头",
+    "date": "2026-07-13",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-13 01:20"
+  },
+  {
+    "code": "T56",
+    "category": "Task",
+    "title": "准备父亲贷款",
+    "date": "2026-07-30",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-30 12:50"
+  },
+  {
+    "code": "T57",
+    "category": "Task",
+    "title": "晚上给大勇打电话",
+    "date": "2026-07-10",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-10 22:30"
+  },
+  {
+    "code": "T58",
+    "category": "Task",
+    "title": "擦地",
+    "date": "2026-07-11",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-11 16:10"
+  },
+  {
+    "code": "T59",
+    "category": "Task",
+    "title": "收拾零食箱子",
+    "date": "2026-07-11",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-11 15:48"
+  },
+  {
+    "code": "T60",
+    "category": "Task",
+    "title": "记录日历",
+    "date": "2026-07-11",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-11 16:18"
+  },
+  {
+    "code": "T61",
+    "category": "Task",
+    "title": "清理洗地机",
+    "date": "2026-07-11",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-11 22:30"
+  },
+  {
+    "code": "T62",
+    "category": "Task",
+    "title": "洗衣服",
+    "date": "2026-07-11",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-11 23:30"
+  },
+  {
+    "code": "T63",
+    "category": "Task",
+    "title": "把安琪的账做了",
+    "date": "2026-07-12",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-12 18:45"
+  },
+  {
+    "code": "T64",
+    "category": "Task",
+    "title": "蒸馏skills",
+    "date": "2026-07-12",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-12 23:36"
+  },
+  {
+    "code": "F5",
+    "category": "Follow-up",
+    "title": "安琪账",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-15 13:10"
+  },
+  {
+    "code": "F6",
+    "category": "Follow-up",
+    "title": "Follow up 退税",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-07-29 13:25"
+  },
+  {
+    "code": "S2",
+    "category": "Site Visit",
+    "title": "第一个岛除草",
+    "date": "2026-07-16",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-16 15:20"
+  },
+  {
+    "code": "S3",
+    "category": "Site Visit",
+    "title": "去西岛",
+    "date": "2026-07-22",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-22 15:15"
+  },
+  {
+    "code": "T65",
+    "category": "Task",
+    "title": "更新QuickBooks",
+    "date": "2026-07-14",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-14 15:40"
+  },
+  {
+    "code": "T66",
+    "category": "Task",
+    "title": "更新Cash Flow",
+    "date": "2026-07-14",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-14 17:30"
+  },
+  {
+    "code": "T67",
+    "category": "Task",
+    "title": "开始做酒店的网站",
+    "date": "2026-07-14",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-14 23:00"
+  },
+  {
+    "code": "M4",
+    "category": "Meeting",
+    "title": "见刁光磊",
+    "date": "2026-07-13",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-13 14:20"
+  },
+  {
+    "code": "P18",
+    "category": "Personal",
+    "title": "买简易衣柜",
+    "note": "高1米7，宽65cm，深45cm",
+    "date": "2026-07-20",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-20 18:20"
+  },
+  {
+    "code": "T68",
+    "category": "Task",
+    "title": "检查各个银行的个人账户",
+    "date": "2026-07-14",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-14 15:33"
+  },
+  {
+    "code": "T69",
+    "category": "Task",
+    "title": "更新weekly token usage",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-15 14:50"
+  },
+  {
+    "code": "T70",
+    "category": "Task",
+    "title": "游戏转到Claude Code",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-15 15:50"
+  },
+  {
+    "code": "P19",
+    "category": "Personal",
+    "title": "健身做表格",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-07-15 22:06"
+  },
+  {
+    "code": "F7",
+    "category": "Follow-up",
+    "title": "给Hani发报表",
+    "date": "2026-07-15",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-15 12:53"
+  },
+  {
+    "code": "F8",
+    "category": "Follow-up",
+    "title": "给Makram发桥的延期通知",
+    "date": "2026-07-17",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-17 13:03"
+  },
+  {
+    "code": "F9",
+    "category": "Follow-up",
+    "title": "给Eddy发IQ的证明",
+    "date": "2026-07-17",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-17 13:00"
+  },
+  {
+    "code": "T71",
+    "category": "Task",
+    "title": "去中国超市",
+    "date": "2026-07-17",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-17 15:25"
+  },
+  {
+    "code": "T72",
+    "category": "Task",
+    "title": "更新菜谱",
+    "date": "2026-07-17",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-17 20:00"
+  },
+  {
+    "code": "T73",
+    "category": "Task",
+    "title": "洗衣服",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-07-19 16:55"
+  },
+  {
+    "code": "T74",
+    "category": "Task",
+    "title": "给工程买保险",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 3
+  },
+  {
+    "code": "T75",
+    "category": "Task",
+    "title": "给BDC发邮件",
+    "date": "2026-07-18",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-18 15:32"
+  },
+  {
+    "code": "T76",
+    "category": "Task",
+    "title": "做工资",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 106,
+    "doneAt": "2026-07-19 17:39"
+  },
+  {
+    "code": "P20",
+    "category": "Personal",
+    "title": "给Bodhi炖排骨",
+    "date": "2026-07-17",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-07-17 20:10"
+  },
+  {
+    "code": "T77",
+    "category": "Task",
+    "title": "重设语音信箱留言",
+    "date": "2026-07-18",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-18 15:00"
+  },
+  {
+    "code": "T78",
+    "category": "Task",
+    "title": "擦地",
+    "date": "2026-07-18",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-18 16:00"
+  },
+  {
+    "code": "T79",
+    "category": "Task",
+    "title": "浇花",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-19 16:15"
+  },
+  {
+    "code": "P21",
+    "category": "Personal",
+    "title": "买褪黑素",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 108,
+    "doneAt": "2026-07-19 20:45"
+  },
+  {
+    "code": "T80",
+    "category": "Task",
+    "title": "报销加油小票",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 107,
+    "doneAt": "2026-07-19 18:06"
+  },
+  {
+    "code": "P22",
+    "category": "Personal",
+    "title": "健身",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 109,
+    "doneAt": "2026-07-19 21:40"
+  },
+  {
+    "code": "P23",
+    "category": "Personal",
+    "title": "去Costco",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-19 15:24"
+  },
+  {
+    "code": "P24",
+    "category": "Personal",
+    "title": "收拾鸡翅",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-19 15:40"
+  },
+  {
+    "code": "P25",
+    "category": "Personal",
+    "title": "给狗换床单",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-19 16:00"
+  },
+  {
+    "code": "P26",
+    "category": "Personal",
+    "title": "给狗梳毛",
+    "date": "2026-07-19",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-19 16:10"
+  },
+  {
+    "code": "T81",
+    "category": "Task",
+    "title": "做QB账",
+    "date": "2026-07-30",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-30 15:10"
+  },
+  {
+    "code": "T82",
+    "category": "Task",
+    "title": "Amazon买东西",
+    "date": "2026-07-20",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-20 18:20"
+  },
+  {
+    "code": "T83",
+    "category": "Task",
+    "title": "报销costco信用卡买filter票子",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-29 12:10"
+  },
+  {
+    "code": "P27",
+    "category": "Personal",
+    "title": "刷拖鞋",
+    "date": "2026-07-22",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-22 15:47"
+  },
+  {
+    "code": "T84",
+    "category": "Task",
+    "title": "扫描Canadian Tire票子",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-07-29 13:30"
+  },
+  {
+    "code": "T85",
+    "category": "Task",
+    "title": "给刁光磊发void check",
+    "date": "2026-07-24",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-24 15:09"
+  },
+  {
+    "code": "T86",
+    "category": "Task",
+    "title": "奥迪换过滤并记录",
+    "date": "2026-07-24",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-24 14:50"
+  },
+  {
+    "code": "T87",
+    "category": "Task",
+    "title": "奔驰换过滤并记录",
+    "date": "2026-08-03",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-03 12:20"
+  },
+  {
+    "code": "P28",
+    "category": "Personal",
+    "title": "拼衣柜",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 4
+  },
+  {
+    "code": "F10",
+    "category": "Follow-up",
+    "title": "回复BDC",
+    "date": "2026-07-24",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-24 15:05"
+  },
+  {
+    "code": "T88",
+    "category": "Task",
+    "title": "擦地",
+    "date": "2026-07-25",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-25 17:00"
+  },
+  {
+    "code": "P29",
+    "category": "Personal",
+    "title": "剪头",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 110,
+    "doneAt": "2026-08-02 23:59"
+  },
+  {
+    "code": "P30",
+    "category": "Personal",
+    "title": "清洁浴室",
+    "date": "2026-08-01",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-01 14:50"
+  },
+  {
+    "code": "T90",
+    "category": "Task",
+    "title": "洗衣服",
+    "date": "2026-07-28",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-28 23:22"
+  },
+  {
+    "code": "T91",
+    "category": "Task",
+    "title": "联系赵律师",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 106,
+    "doneAt": "2026-07-29 22:10"
+  },
+  {
+    "code": "T92",
+    "category": "Task",
+    "title": "洗床单",
+    "date": "2026-07-31",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-07-31 17:40"
+  },
+  {
+    "code": "T93",
+    "category": "Task",
+    "title": "106772年报邮件处理",
+    "date": "2026-08-11",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-11 14:30"
+  },
+  {
+    "code": "T94",
+    "category": "Task",
+    "title": "更新Cashflow Projection",
+    "date": "2026-07-30",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-30 17:38"
+  },
+  {
+    "code": "T95",
+    "category": "Task",
+    "title": "查公司信箱106772年报Corporation Key",
+    "date": "2026-08-09",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-09 15:40"
+  },
+  {
+    "code": "P31",
+    "category": "Personal",
+    "title": "叠衣服",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 106,
+    "doneAt": "2026-08-02 17:45"
+  },
+  {
+    "code": "T99",
+    "category": "Task",
+    "title": "还个人信用卡",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-29 12:12"
+  },
+  {
+    "code": "T96",
+    "category": "Task",
+    "title": "还Desjardins信用卡",
+    "date": "2026-07-29",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-07-29 13:40"
+  },
+  {
+    "code": "T97",
+    "category": "Task",
+    "title": "准备母下月贷款、平账户",
+    "date": "2026-07-30",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-30 10:07"
+  },
+  {
+    "code": "T100",
+    "category": "Task",
+    "title": "付学校税",
+    "date": "2026-07-30",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-07-30 14:41"
+  },
+  {
+    "code": "T101",
+    "category": "Task",
+    "title": "公司给个人转账",
+    "date": "2026-07-30",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-07-30 17:50"
+  },
+  {
+    "code": "P32",
+    "category": "Personal",
+    "title": "去 Costco",
+    "date": "2026-07-31",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-07-31 15:00"
+  },
+  {
+    "code": "T102",
+    "category": "Task",
+    "title": "奥迪车室内清洁",
+    "date": "2026-08-03",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-08-03 15:50"
+  },
+  {
+    "code": "P33",
+    "category": "Personal",
+    "title": "擦地",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-02 16:39"
+  },
+  {
+    "code": "P34",
+    "category": "Personal",
+    "title": "收拾鸡翅",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 108,
+    "doneAt": "2026-08-02 19:15"
+  },
+  {
+    "code": "P35",
+    "category": "Personal",
+    "title": "去中国超市",
+    "date": "2026-08-07",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-07 13:55"
+  },
+  {
+    "code": "T103",
+    "category": "Task",
+    "title": "boxing 付款",
+    "date": "2026-08-05",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-08-05 22:26"
+  },
+  {
+    "code": "T104",
+    "category": "Task",
+    "title": "做工资",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-08-02 16:52"
+  },
+  {
+    "code": "P36",
+    "category": "Personal",
+    "title": "刷狗盆",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-08-02 17:17"
+  },
+  {
+    "code": "T105",
+    "category": "Task",
+    "title": "记录日历",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 105,
+    "doneAt": "2026-08-02 17:40"
+  },
+  {
+    "code": "P37",
+    "category": "Personal",
+    "title": "给 Bodhi 煮骨头",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-08-02 17:20"
+  },
+  {
+    "code": "P38",
+    "category": "Personal",
+    "title": "剪指甲",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-08-02 17:31"
+  },
+  {
+    "code": "T106",
+    "category": "Task",
+    "title": "做工资",
+    "date": "2026-08-15",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-08-15 23:59"
+  },
+  {
+    "code": "P39",
+    "category": "Personal",
+    "title": "洗 bodhi 床单",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 107,
+    "doneAt": "2026-08-02 19:00"
+  },
+  {
+    "code": "P40",
+    "category": "Personal",
+    "title": "清洁洗地机",
+    "date": "2026-08-02",
+    "status": "Done",
+    "order": 109,
+    "doneAt": "2026-08-02 23:50"
+  },
+  {
+    "code": "P41",
+    "category": "Personal",
+    "title": "浇花",
+    "date": "2026-08-15",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-15 14:39"
+  },
+  {
+    "code": "T107",
+    "category": "Task",
+    "title": "改 106772 自然年截止日期",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 6
+  },
+  {
+    "code": "F11",
+    "category": "Follow-up",
+    "title": "回复 Nicole",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 1
+  },
+  {
+    "code": "T108",
+    "category": "Task",
+    "title": "Timing CPA 付款",
+    "date": "2026-08-05",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-05 22:30"
+  },
+  {
+    "code": "T109",
+    "category": "Task",
+    "title": "Utrust 付款",
+    "date": "2026-08-06",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-06 23:23"
+  },
+  {
+    "code": "P43",
+    "category": "Personal",
+    "title": "擦地",
+    "date": "2026-08-08",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-08-08 18:36"
+  },
+  {
+    "code": "P44",
+    "category": "Personal",
+    "title": "收拾排骨",
+    "date": "2026-08-08",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-08-08 21:00"
+  },
+  {
+    "code": "P45",
+    "category": "Personal",
+    "title": "擦镜子",
+    "date": "2026-08-08",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-08 18:00"
+  },
+  {
+    "code": "P46",
+    "category": "Personal",
+    "title": "给狗准备鸡架",
+    "date": "2026-08-08",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-08-08 20:50"
+  },
+  {
+    "code": "P47",
+    "category": "Personal",
+    "title": "剪指甲",
+    "date": "2026-08-08",
+    "status": "Done",
+    "order": 104,
+    "doneAt": "2026-08-08 22:55"
+  },
+  {
+    "code": "T110",
+    "category": "Task",
+    "title": "做 cash flow projection",
+    "date": "2026-08-10",
+    "status": "Done",
+    "order": 100,
+    "doneAt": "2026-08-10 15:10"
+  },
+  {
+    "code": "T111",
+    "category": "Task",
+    "title": "更新 Timeline",
+    "date": "2026-08-10",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-08-10 15:30"
+  },
+  {
+    "code": "T112",
+    "category": "Task",
+    "title": "更新安琪父母贷款",
+    "date": "2026-08-10",
+    "status": "Done",
+    "order": 102,
+    "doneAt": "2026-08-10 18:15"
+  },
+  {
+    "code": "T113",
+    "category": "Task",
+    "title": "拆信",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 2
+  },
+  {
+    "code": "T114",
+    "category": "Task",
+    "title": "给 IQ 准备报表",
+    "date": "2026-08-10",
+    "status": "Done",
+    "order": 103,
+    "doneAt": "2026-08-10 23:05"
+  },
+  {
+    "code": "P48",
+    "category": "Personal",
+    "title": "除草",
+    "date": "2026-08-16",
+    "status": "Pending",
+    "order": 0
+  },
+  {
+    "code": "P49",
+    "category": "Personal",
+    "title": "擦地",
+    "date": "2026-08-15",
+    "status": "Done",
+    "order": 101,
+    "doneAt": "2026-08-15 16:15"
+  }
+];
+
+const POOL = [
+  {
+    "code": "T2",
+    "category": "Task",
+    "title": "母个人税欠$5600, CRA",
+    "status": "Pending"
+  },
+  {
+    "code": "P2",
+    "category": "Personal",
+    "title": "安琪礼物",
+    "status": "Pending"
+  },
+  {
+    "code": "T7",
+    "category": "Task",
+    "title": "父母和自己的省税要交",
+    "status": "Pending"
+  },
+  {
+    "code": "T8",
+    "category": "Task",
+    "title": "vingcard 50% deposit",
+    "status": "Pending"
+  },
+  {
+    "code": "P3",
+    "category": "Personal",
+    "title": "请杨译林吃饭",
+    "status": "Pending"
+  },
+  {
+    "code": "P5",
+    "category": "Personal",
+    "title": "西服",
+    "status": "Pending"
+  },
+  {
+    "code": "T10",
+    "category": "Task",
+    "title": "Google Maps spa booking link",
+    "note": "如牛兵卫 waitlist + Google reviews: shop.tapfive.com, Clover, Cluster",
+    "status": "Pending"
+  }
+];
+
+const LONGTERM = [
+  {title:"property insurance",                                                          status:"Pending"},
+  {title:"联系senneville septic tank",         note:"4504587016 ext.216 — 2025年可能改成了Sanivac。5144532279, sanivac.ca", status:"Pending"},
+  {title:"西岛电线掉下来",                                                              status:"Pending"},
+  {title:"Mews KYC",                                                                    status:"Pending"},
+  {title:"medical card实体卡上改地址",                                                  status:"Pending"},
+  {title:"卖crypto",                                                                    status:"Pending"},
+  {title:"engi检查bridge",                                                              status:"Pending"},
+  {title:"许峰",                                                                        status:"Pending"},
+  {title:"massage如何创新",                                                             status:"Pending"},
+];
+
+const CAT = {
+  "Meeting":   {color:"#3B5BDB",light:"#dbe4ff"},
+  "Call":      {color:"#0CA678",light:"#c3fae8"},
+  "Review":    {color:"#E67700",light:"#fff3bf"},
+  "Task":      {color:"#7048E8",light:"#e5dbff"},
+  "Follow-up": {color:"#A61E4D",light:"#ffdeeb"},
+  "Site Visit":{color:"#1971C2",light:"#d0ebff"},
+  "Personal":  {color:"#2F9E44",light:"#d3f9d8"},
+};
+</script>
+
+<!-- LEFT -->
+<div id="cal">
+  <div class="cal-header">
+    <div>
+      <div class="cal-sub">Planner</div>
+      <div class="cal-title" id="month-title"></div>
+    </div>
+    <div class="nav-btns">
+      <select id="month-select" onchange="onMonthSelect()" style="padding:6px 10px;border-radius:8px;border:1.5px solid #e2e4ea;background:#fff;font-size:13px;font-family:inherit;color:#495057;cursor:pointer"></select>
+      <select id="year-select" onchange="onMonthSelect()" style="padding:6px 10px;border-radius:8px;border:1.5px solid #e2e4ea;background:#fff;font-size:13px;font-family:inherit;color:#495057;cursor:pointer"></select>
+      <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+      <button class="nav-btn" onclick="changeMonth(1)">›</button>
+    </div>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="cal-grid" id="cal-grid">
+    <div class="day-label">Sun</div><div class="day-label">Mon</div>
+    <div class="day-label">Tue</div><div class="day-label">Wed</div>
+    <div class="day-label">Thu</div><div class="day-label">Fri</div>
+    <div class="day-label">Sat</div>
+  </div>
+  <div id="day-panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-weekday" id="panel-weekday"></div>
+        <div class="panel-date" id="panel-date"></div>
+      </div>
+      <button class="close-btn" onclick="closePanel()">×</button>
+    </div>
+    <div id="panel-events"></div>
+  </div>
+</div>
+
+<!-- RIGHT -->
+<div id="right">
+  <div class="section">
+    <div class="sec-label">Upcoming</div>
+    <div class="sec-title">Other Scheduled Tasks</div>
+    <div id="scheduled-list"></div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Unscheduled</div>
+    <div class="sec-title">To Schedule</div>
+    <div class="drop-zone" id="pool-drop">
+      <div id="pool-pending"></div>
+    </div>
+    <div id="pool-done-wrap" style="display:none">
+      <div class="sec-divider">Completed</div>
+      <div id="pool-done"></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">No deadline</div>
+    <div class="sec-title">Long-term</div>
+    <div class="drop-zone" id="lt-drop">
+      <div id="lt-pending"></div>
+    </div>
+    <div id="lt-done-wrap" style="display:none">
+      <div class="sec-divider">Completed</div>
+      <div id="lt-done"></div>
+    </div>
+  </div>
+</div>
+
+<div class="drag-ghost" id="drag-ghost" style="display:none"></div>
+
+<script>
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const WEEKDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+let curYear, curMonth, selectedDate=null;
+
+/* ══════════════════════════════════════════════════════
+   DRAG STATE
+   mode: 'move'    — dragging to a different date/pool/lt
+         'reorder' — dragging within the same day panel
+   ══════════════════════════════════════════════════════ */
+let drag = null;
+/*  drag = {
+      mode: 'move'|'reorder',
+      code: string,
+      source: 'events'|'pool'|'longterm',
+      // reorder only:
+      date: string,           // date of the day panel
+      sourceEl: HTMLElement,  // the ev-card being dragged
+      overEl: null|HTMLElement,
+      overPos: 'above'|'below'|null
+    }
+*/
+
+/* ── helpers ── */
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function pad(n){return String(n).padStart(2,"0");}
+function dateStr(y,m,d){return `${y}-${pad(m+1)}-${pad(d)}`;}
+function catStyle(cat){return CAT[cat]||{color:"#868e96",light:"#f1f3f5"};}
+
+/* Events for a date, sorted by order then code */
+function eventsForDate(k){
+  return EVENTS
+    .filter(e=>e.date===k)
+    .sort((a,b)=>{
+      // Pending always before Done
+      if(a.status!==b.status) return a.status==='Pending'?-1:1;
+      // Within Pending: sort by order
+      if(a.status==='Pending') return (a.order??99)-(b.order??99);
+      // Within Done: sort by doneAt time
+      return (a.doneAt||'').localeCompare(b.doneAt||'');
+    });
+}
+
+/* Assign order to newly added events on a date */
+function assignOrder(ev, date){
+  const existing = EVENTS.filter(e=>e.date===date && e.code!==ev.code);
+  const maxOrder = existing.length ? Math.max(...existing.map(e=>e.order??0)) : -1;
+  ev.order = maxOrder + 1;
+}
+
+/* ═══════════════════════════════════════════════
+   GHOST
+   ═══════════════════════════════════════════════ */
+function showGhost(e, item){
+  const ghost = document.getElementById('drag-ghost');
+  const c = catStyle(item.category||'');
+  ghost.textContent = `${item.code||''} ${item.title}`.trim();
+  ghost.style.background = c.light;
+  ghost.style.color = c.color;
+  ghost.style.border = `1.5px solid ${c.color}`;
+  ghost.style.display = 'block';
+  moveGhost(e);
+}
+function moveGhost(e){
+  const ghost=document.getElementById('drag-ghost');
+  const x=e.clientX||(e.touches&&e.touches[0].clientX)||0;
+  const y=e.clientY||(e.touches&&e.touches[0].clientY)||0;
+  ghost.style.left=(x+14)+'px';
+  ghost.style.top=(y+14)+'px';
+}
+function hideGhost(){ document.getElementById('drag-ghost').style.display='none'; }
+
+/* ═══════════════════════════════════════════════
+   START DRAG
+   ═══════════════════════════════════════════════ */
+function startMoveDrag(e, code, source){
+  e.stopPropagation();
+  const item = findItem(code, source);
+  if(!item) return;
+  drag = {mode:'move', code, source};
+  showGhost(e, item);
+  bindDragListeners();
+}
+
+function startReorderDrag(e, code, date, cardEl){
+  e.stopPropagation();
+  const item = findItem(code, 'events');
+  if(!item) return;
+  drag = {mode:'reorder', code, source:'events', date, sourceEl:cardEl, overEl:null, overPos:null};
+  cardEl.classList.add('drag-source');
+  showGhost(e, item);
+  bindDragListeners();
+}
+
+function bindDragListeners(){
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup',   onEnd);
+  document.addEventListener('touchmove', onTouchMove, {passive:false});
+  document.addEventListener('touchend',  onTouchEnd);
+}
+function unbindDragListeners(){
+  document.removeEventListener('mousemove', onMove);
+  document.removeEventListener('mouseup',   onEnd);
+  document.removeEventListener('touchmove', onTouchMove);
+  document.removeEventListener('touchend',  onTouchEnd);
+}
+
+/* ═══════════════════════════════════════════════
+   MOVE
+   ═══════════════════════════════════════════════ */
+function onMove(e){ moveGhost(e); if(drag.mode==='move') highlightMoveTarget(e); else highlightReorderTarget(e); }
+function onTouchMove(e){ e.preventDefault(); onMove(e); }
+function onEnd(e){ finish(e.clientX, e.clientY); }
+function onTouchEnd(e){ const t=e.changedTouches[0]; finish(t.clientX, t.clientY); }
+
+function xyFromEvent(e){
+  return [e.clientX||(e.touches&&e.touches[0].clientX)||0,
+          e.clientY||(e.touches&&e.touches[0].clientY)||0];
+}
+
+function highlightMoveTarget(e){
+  document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  const [x,y]=xyFromEvent(e);
+  const el=document.elementFromPoint(x,y); if(!el) return;
+  const cell=el.closest('.cell[data-date]');
+  if(cell){cell.classList.add('drag-over');return;}
+  const pd=el.closest('#pool-drop'); if(pd){pd.classList.add('drag-over');return;}
+  const ld=el.closest('#lt-drop');   if(ld){ld.classList.add('drag-over');return;}
+}
+
+/* ═══════════════════════════════════════════════
+   REORDER HIGHLIGHT
+   Shows a blue line above or below the card being hovered
+   ═══════════════════════════════════════════════ */
+function highlightReorderTarget(e){
+  // Clear previous indicators
+  document.querySelectorAll('.reorder-above,.reorder-below').forEach(el=>{
+    el.classList.remove('reorder-above','reorder-below');
+  });
+
+  const [x,y]=xyFromEvent(e);
+  const el=document.elementFromPoint(x,y); if(!el) return;
+  const card=el.closest('.ev-card[data-code]');
+  if(!card || card===drag.sourceEl) return;
+
+  // Above or below midpoint?
+  const rect=card.getBoundingClientRect();
+  const mid=rect.top+rect.height/2;
+  const pos = y < mid ? 'above' : 'below';
+  card.classList.add(pos==='above'?'reorder-above':'reorder-below');
+  drag.overEl=card;
+  drag.overPos=pos;
+}
+
+/* ═══════════════════════════════════════════════
+   FINISH DROP
+   ═══════════════════════════════════════════════ */
+function finish(x, y){
+  unbindDragListeners();
+  hideGhost();
+  document.querySelectorAll('.drag-over,.reorder-above,.reorder-below').forEach(el=>{
+    el.classList.remove('drag-over','reorder-above','reorder-below');
+  });
+  if(!drag){return;}
+
+  if(drag.mode==='reorder'){
+    // Clean source highlight
+    if(drag.sourceEl) drag.sourceEl.classList.remove('drag-source');
+    if(drag.overEl && drag.overPos){
+      applyReorder(drag.code, drag.date, drag.overEl.dataset.code, drag.overPos);
+    }
+    drag=null;
+    // Re-render panel to show new order
+    if(selectedDate) selectDay(selectedDate);
+    renderCalendar();
+    renderScheduled();
+    return;
+  }
+
+  // mode === 'move'
+  const el=document.elementFromPoint(x,y);
+  if(!el){drag=null;return;}
+
+  // First check: is this a reorder drop inside the panel on a card of the same date?
+  const panelCard=el.closest('#panel-events .ev-card[data-code]');
+  if(panelCard && drag.source==='events'){
+    const targetCode=panelCard.dataset.code;
+    const targetEv=EVENTS.find(e=>e.code===targetCode);
+    const sourceEv=EVENTS.find(e=>e.code===drag.code);
+    if(targetEv && sourceEv && targetEv.date===sourceEv.date && targetCode!==drag.code){
+      const rect=panelCard.getBoundingClientRect();
+      const pos=y<rect.top+rect.height/2?'above':'below';
+      applyReorder(drag.code, sourceEv.date, targetCode, pos);
+      drag=null;
+      if(selectedDate) selectDay(selectedDate);
+      renderCalendar();
+      renderScheduled();
+      return;
+    }
+  }
+
+  const cell=el.closest('.cell[data-date]');
+  if(cell){ dropOnDate(drag.code, drag.source, cell.dataset.date); drag=null; return; }
+  if(el.closest('#pool-drop')){ dropOnPool(drag.code, drag.source); drag=null; return; }
+  if(el.closest('#lt-drop'))  { dropOnLongterm(drag.code, drag.source); drag=null; return; }
+  drag=null;
+}
+
+/* ═══════════════════════════════════════════════
+   REORDER LOGIC
+   Moves `dragCode` before or after `targetCode` within a date,
+   then reassigns order values 0,1,2,…
+   ═══════════════════════════════════════════════ */
+function applyReorder(dragCode, date, targetCode, pos){
+  // Get all events on this date in current order
+  const dayEvs = eventsForDate(date); // already sorted by order
+  if(dayEvs.length<2) return;
+
+  // Remove dragged item from list
+  const dragIdx = dayEvs.findIndex(e=>e.code===dragCode);
+  if(dragIdx===-1) return;
+  const [dragged] = dayEvs.splice(dragIdx,1);
+
+  // Find target position
+  const targetIdx = dayEvs.findIndex(e=>e.code===targetCode);
+  if(targetIdx===-1){ dayEvs.push(dragged); }
+  else if(pos==='above'){ dayEvs.splice(targetIdx, 0, dragged); }
+  else                  { dayEvs.splice(targetIdx+1, 0, dragged); }
+
+  // Write new order values back to EVENTS array
+  dayEvs.forEach((ev,i)=>{ ev.order=i; });
+}
+
+/* ═══════════════════════════════════════════════
+   DROP ACTIONS (move between date/pool/lt)
+   ═══════════════════════════════════════════════ */
+function findItem(code, source){
+  if(source==='events')  return EVENTS.find(e=>e.code===code);
+  if(source==='pool')    return POOL.find(e=>e.code===code);
+  if(source==='longterm')return LONGTERM.find(e=>e.title===code);
+  return null;
+}
+
+function dropOnDate(code, source, targetDate){
+  if(source==='events'){
+    const ev=EVENTS.find(e=>e.code===code);
+    if(!ev) return;
+    if(ev.date===targetDate){drag=null;return;} // same cell, no-op
+    ev.date=targetDate;
+    assignOrder(ev, targetDate);
+  } else if(source==='pool'){
+    const idx=POOL.findIndex(e=>e.code===code); if(idx===-1) return;
+    const [item]=POOL.splice(idx,1);
+    item.date=targetDate;
+    EVENTS.push(item);
+    assignOrder(item, targetDate);
+  } else if(source==='longterm'){
+    const idx=LONGTERM.findIndex(e=>e.title===code); if(idx===-1) return;
+    const [item]=LONGTERM.splice(idx,1);
+    item.date=targetDate;
+    item.code=item.code||'?';
+    item.category=item.category||'Task';
+    EVENTS.push(item);
+    assignOrder(item, targetDate);
+  }
+  renderAll();
+  if(selectedDate) selectDay(selectedDate);
+}
+
+function dropOnPool(code, source){
+  if(source==='pool') return;
+  if(source==='events'){
+    const idx=EVENTS.findIndex(e=>e.code===code); if(idx===-1) return;
+    const [item]=EVENTS.splice(idx,1);
+    delete item.date; delete item.time; delete item.order;
+    POOL.push(item);
+    if(selectedDate) closePanel();
+  } else if(source==='longterm'){
+    const idx=LONGTERM.findIndex(e=>e.title===code); if(idx===-1) return;
+    const [item]=LONGTERM.splice(idx,1);
+    item.code=item.code||'?'; item.category=item.category||'Task';
+    POOL.push(item);
+  }
+  renderAll();
+}
+
+function dropOnLongterm(code, source){
+  if(source==='longterm') return;
+  if(source==='events'){
+    const idx=EVENTS.findIndex(e=>e.code===code); if(idx===-1) return;
+    const [item]=EVENTS.splice(idx,1);
+    delete item.date; delete item.time; delete item.order; delete item.code; delete item.category;
+    LONGTERM.push(item);
+    if(selectedDate) closePanel();
+  } else if(source==='pool'){
+    const idx=POOL.findIndex(e=>e.code===code); if(idx===-1) return;
+    const [item]=POOL.splice(idx,1);
+    delete item.code; delete item.category;
+    LONGTERM.push(item);
+  }
+  renderAll();
+}
+
+/* ── attach drag to an element ──
+   Desktop: mousedown fires immediately.
+   Mobile:  touchstart starts a 300ms timer. If the finger moves >6px
+            before the timer fires, we cancel → native scroll takes over.
+            If the timer fires first → drag activates (visual pulse feedback).
+*/
+const LONG_PRESS_MS = 300;
+const LONG_PRESS_SLOP = 6; // px movement allowed before cancelling
+
+function addLongPressDrag(el, onActivate){
+  let timer = null;
+  let startX = 0, startY = 0;
+
+  function cancel(){
+    clearTimeout(timer);
+    timer = null;
+    el.classList.remove('drag-activating');
+  }
+
+  el.addEventListener('touchstart', e=>{
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    el.classList.add('drag-activating');
+    timer = setTimeout(()=>{
+      el.classList.remove('drag-activating');
+      // Synthesize an event-like object for ghost positioning
+      onActivate(e);
+    }, LONG_PRESS_MS);
+  }, {passive:true});
+
+  el.addEventListener('touchmove', e=>{
+    if(!timer) return;
+    const t = e.touches[0];
+    const dx = Math.abs(t.clientX - startX);
+    const dy = Math.abs(t.clientY - startY);
+    if(dx > LONG_PRESS_SLOP || dy > LONG_PRESS_SLOP) cancel();
+  }, {passive:true});
+
+  el.addEventListener('touchend',   cancel);
+  el.addEventListener('touchcancel',cancel);
+}
+
+function makeDraggable(el, code, source){
+  el.addEventListener('mousedown', e=>{ if(e.button!==0) return; startMoveDrag(e,code,source); });
+  addLongPressDrag(el, e=>{ startMoveDrag(e,code,source); });
+}
+function makeReorderable(el, code, date){
+  el.addEventListener('mousedown', e=>{ if(e.button!==0) return; startReorderDrag(e,code,date,el); });
+  addLongPressDrag(el, e=>{ startReorderDrag(e,code,date,el); });
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER
+   ══════════════════════════════════════════════════════ */
+function buildLegend(){
+  const el=document.getElementById("legend");
+  Object.entries(CAT).forEach(([k,v])=>{
+    el.innerHTML+=`<div class="leg-item"><div class="leg-dot" style="background:${v.color}"></div><span style="font-weight:700;color:${v.color}">${k[0]}</span>&nbsp;${k}</div>`;
+  });
+}
+
+function renderCalendar(){
+  const today=todayStr();
+  document.getElementById("month-title").textContent=`${MONTHS[curMonth]} ${curYear}`;
+  const firstDay=new Date(curYear,curMonth,1).getDay();
+  const totalDays=new Date(curYear,curMonth+1,0).getDate();
+  const grid=document.getElementById("cal-grid");
+  while(grid.children.length>7) grid.removeChild(grid.lastChild);
+  for(let i=0;i<firstDay;i++) grid.appendChild(document.createElement("div"));
+  for(let d=1;d<=totalDays;d++){
+    const key=dateStr(curYear,curMonth,d);
+    const dayEvs=eventsForDate(key);
+    const isToday=key===today, isSel=key===selectedDate;
+    const pending=dayEvs.filter(e=>e.status==="Pending").length;
+    const done=dayEvs.filter(e=>e.status==="Done").length;
+    const cell=document.createElement("div");
+    cell.className=`cell${isToday?" today":""}${isSel?" selected":""}`;
+    cell.dataset.date=key;
+    cell.addEventListener('click',()=>{ if(!drag) selectDay(key); });
+    const numEl=document.createElement("div");
+    numEl.className="cell-num"; numEl.textContent=d; cell.appendChild(numEl);
+    dayEvs.slice(0,3).forEach(ev=>{
+      const c=catStyle(ev.category);
+      const chip=document.createElement("div");
+      chip.className=`ev-chip${ev.status==='Done'?' done':''}`;
+      chip.style.background=c.light;
+      chip.style.color=c.color;
+      chip.innerHTML=`<span style="opacity:.75">${ev.code}</span> ${ev.time?`<span style="opacity:.65">${ev.time}</span> `:""}${ev.title}`;
+      if(ev.status!=='Done') makeDraggable(chip, ev.code, 'events');
+      cell.appendChild(chip);
+    });
+    if(dayEvs.length>3){ const m=document.createElement("div"); m.className="more"; m.textContent=`+${dayEvs.length-3} more`; cell.appendChild(m); }
+    if(dayEvs.length>0){ const s=document.createElement("div"); s.className="mini-stats"; s.innerHTML=`${pending>0?`<span class="stat-p">${pending}P</span>`:""}${done>0?`<span class="stat-d">${done}D</span>`:""}`;  cell.appendChild(s); }
+    grid.appendChild(cell);
+  }
+}
+
+function renderScheduled(){
+  const upcoming=EVENTS
+    .filter(e=>e.status==="Pending" && e.date && e.date!==selectedDate)
+    .slice().sort((a,b)=>a.date.localeCompare(b.date)||((a.order??99)-(b.order??99)));
+  const container=document.getElementById("scheduled-list");
+  container.innerHTML="";
+  if(upcoming.length===0){ container.innerHTML=`<div class="none-msg">Nothing scheduled.</div>`; return; }
+  upcoming.forEach(ev=>{
+    const c=catStyle(ev.category);
+    const card=document.createElement("div");
+    card.className="pool-card";
+    card.style.background=c.light; card.style.borderLeft=`4px solid ${c.color}`;
+    const dt=new Date(ev.date+"T12:00:00");
+    const dateLabel=dt.toLocaleDateString(undefined,{month:"short",day:"numeric",weekday:"short"});
+    card.innerHTML=`<div class="pool-code"><span style="font-weight:800;color:${c.color}">${ev.code}</span><span class="badge badge-p">Pending</span><span style="font-size:10px;color:#868e96;margin-left:auto">${dateLabel}</span></div><div class="pool-title">${ev.title}</div>${ev.note?`<div class="pool-note">${ev.note}</div>`:""}`;
+    makeDraggable(card, ev.code, 'events');
+    container.appendChild(card);
+  });
+}
+
+function renderPool(){
+  const pending=POOL.filter(e=>e.status==="Pending");
+  const done=POOL.filter(e=>e.status==="Done");
+  const pendingEl=document.getElementById("pool-pending"); pendingEl.innerHTML="";
+  if(pending.length===0){ pendingEl.innerHTML=`<div class="none-msg">Pool is empty.</div>`; }
+  else{ pending.forEach(ev=>{ const c=catStyle(ev.category); const card=document.createElement("div"); card.className="pool-card"; card.style.background=c.light; card.style.borderLeft=`4px solid ${c.color}`; card.innerHTML=`<div class="pool-code"><span style="font-weight:800;color:${c.color}">${ev.code}</span><span class="badge badge-p">Pending</span></div><div class="pool-title">${ev.title}</div>${ev.note?`<div class="pool-note">${ev.note}</div>`:""}`;  makeDraggable(card,ev.code,'pool'); pendingEl.appendChild(card); }); }
+  const doneWrap=document.getElementById("pool-done-wrap");
+  if(done.length>0){ let dh=""; done.forEach(ev=>{dh+=`<div class="pool-card done-card"><div class="done-title">${ev.code} ${ev.title}</div>${ev.doneAt?`<div class="done-at">Done ${ev.doneAt}</div>`:""}</div>`;}); document.getElementById("pool-done").innerHTML=dh; doneWrap.style.display="block"; } else { doneWrap.style.display="none"; }
+}
+
+function renderLongterm(){
+  const pending=LONGTERM.filter(t=>t.status==="Pending");
+  const done=LONGTERM.filter(t=>t.status==="Done");
+  const pendingEl=document.getElementById("lt-pending"); pendingEl.innerHTML="";
+  if(pending.length===0){ pendingEl.innerHTML=`<div class="none-msg">Nothing here yet.</div>`; }
+  else{ pending.forEach(t=>{ const card=document.createElement("div"); card.className="lt-card"; card.innerHTML=`<div class="lt-title">${t.title}</div>${t.note?`<div class="lt-note">${t.note}</div>`:""}`;  makeDraggable(card,t.title,'longterm'); pendingEl.appendChild(card); }); }
+  const doneWrap=document.getElementById("lt-done-wrap");
+  if(done.length>0){ let dh=""; done.forEach(t=>{dh+=`<div class="pool-card done-card"><div class="done-title">${t.title}</div>${t.doneAt?`<div class="done-at">Done ${t.doneAt}</div>`:""}</div>`;}); document.getElementById("lt-done").innerHTML=dh; doneWrap.style.display="block"; } else { doneWrap.style.display="none"; }
+}
+
+function renderAll(){ renderCalendar(); renderScheduled(); renderPool(); renderLongterm(); }
+
+/* ── Day panel ── */
+function selectDay(key){
+  selectedDate=key; renderCalendar(); renderScheduled();
+  const dt=new Date(key+"T12:00:00");
+  document.getElementById("panel-weekday").textContent=WEEKDAYS[dt.getDay()];
+  document.getElementById("panel-date").textContent=dt.toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"});
+  const dayEvs=eventsForDate(key);
+  const panelEvents=document.getElementById("panel-events"); panelEvents.innerHTML="";
+
+  const pending=dayEvs.filter(e=>e.status==='Pending');
+  const done=dayEvs.filter(e=>e.status==='Done');
+
+  if(dayEvs.length===0){
+    panelEvents.innerHTML=`<div class="empty-msg">No events on this day.</div>`;
+  } else {
+    // ── Pending section ──
+    if(pending.length===0){
+      panelEvents.innerHTML=`<div class="empty-msg">No pending tasks.</div>`;
+    } else {
+      if(pending.length>1){
+        const hint=document.createElement("div");
+        hint.className="reorder-hint";
+        hint.textContent="↕ Drag cards to reorder priority";
+        panelEvents.appendChild(hint);
+      }
+      pending.forEach(ev=>{
+        const c=catStyle(ev.category);
+        const card=document.createElement("div");
+        card.className="ev-card";
+        card.dataset.code=ev.code;
+        card.style.background=c.light;
+        card.style.borderLeft=`4px solid ${c.color}`;
+        card.innerHTML=`
+          <div class="ev-card-code">
+            <span style="font-size:11px;font-weight:800;color:${c.color}">${ev.code}</span>
+            <span class="badge badge-p">Pending</span>
+            <span style="font-size:10px;color:#868e96">${ev.category}</span>
+            ${ev.time?`<span style="font-size:11px;color:#495057;margin-left:auto">${ev.time}</span>`:""}
+          </div>
+          <div class="ev-card-title">${ev.title}</div>
+          ${ev.note?`<div class="ev-card-note">${ev.note}</div>`:""}
+        `;
+        makeReorderable(card, ev.code, key);
+        panelEvents.appendChild(card);
+      });
+    }
+
+    // ── Done section ──
+    if(done.length>0){
+      const divider=document.createElement("div");
+      divider.style.cssText="margin:16px 0 10px;display:flex;align-items:center;gap:8px";
+      divider.innerHTML=`
+        <div style="flex:1;height:1px;background:#e9ecef"></div>
+        <span style="font-size:9px;font-weight:800;letter-spacing:2px;color:#adb5bd;text-transform:uppercase">已完成 ${done.length}</span>
+        <div style="flex:1;height:1px;background:#e9ecef"></div>
+      `;
+      panelEvents.appendChild(divider);
+      done.forEach(ev=>{
+        const c=catStyle(ev.category);
+        const card=document.createElement("div");
+        card.className="ev-card";
+        card.dataset.code=ev.code;
+        card.style.background="#f8f9fa";
+        card.style.borderLeft=`4px solid #ced4da`;
+        card.style.opacity="0.7";
+        card.innerHTML=`
+          <div class="ev-card-code">
+            <span style="font-size:11px;font-weight:800;color:#868e96">${ev.code}</span>
+            <span class="badge badge-d">Done</span>
+            <span style="font-size:10px;color:#adb5bd">${ev.category}</span>
+          </div>
+          <div class="ev-card-title done">${ev.title}</div>
+          ${ev.doneAt?`<div class="ev-card-done">✓ ${ev.doneAt}</div>`:""}
+        `;
+        panelEvents.appendChild(card);
+      });
+    }
+  }
+  document.getElementById("day-panel").classList.add("open");
+}
+
+function closePanel(){ selectedDate=null; document.getElementById("day-panel").classList.remove("open"); renderCalendar(); renderScheduled(); }
+
+function changeMonth(dir){
+  curMonth+=dir;
+  if(curMonth<0){curMonth=11;curYear--;}
+  if(curMonth>11){curMonth=0;curYear++;}
+  syncSelectors();
+  renderAll();
+}
+
+function onMonthSelect(){
+  curMonth=parseInt(document.getElementById("month-select").value);
+  curYear=parseInt(document.getElementById("year-select").value);
+  renderAll();
+}
+
+function syncSelectors(){
+  document.getElementById("month-select").value=curMonth;
+  document.getElementById("year-select").value=curYear;
+}
+
+function buildSelectors(){
+  const mSel=document.getElementById("month-select");
+  MONTHS.forEach((m,i)=>{
+    const o=document.createElement("option");
+    o.value=i; o.textContent=m; mSel.appendChild(o);
+  });
+  const ySel=document.getElementById("year-select");
+  const thisYear=new Date().getFullYear();
+  for(let y=thisYear-1;y<=thisYear+3;y++){
+    const o=document.createElement("option");
+    o.value=y; o.textContent=y; ySel.appendChild(o);
+  }
+}
+
+(function init(){
+  const now=new Date(); curYear=now.getFullYear(); curMonth=now.getMonth();
+  buildLegend();
+  buildSelectors();
+  syncSelectors();
+  renderAll();
+
+  /* ── Auto-select today's date on load ── */
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  selectDay(todayKey);
+
+  /* ── Swipe left/right on calendar to change month ── */
+  const calEl = document.getElementById('cal');
+  let swipeStartX = null;
+  let swipeStartY = null;
+  const SWIPE_MIN_X = 50;   // minimum horizontal px to count as a swipe
+  const SWIPE_MAX_Y = 80;   // maximum vertical px drift allowed
+
+  calEl.addEventListener('touchstart', e=>{
+    // Only track single-finger touches not on a draggable card
+    if(e.touches.length !== 1) return;
+    if(e.target.closest('.ev-chip, .ev-card, .pool-card, .lt-card')) return;
+    swipeStartX = e.touches[0].clientX;
+    swipeStartY = e.touches[0].clientY;
+  }, {passive:true});
+
+  calEl.addEventListener('touchend', e=>{
+    if(swipeStartX === null) return;
+    const dx = e.changedTouches[0].clientX - swipeStartX;
+    const dy = Math.abs(e.changedTouches[0].clientY - swipeStartY);
+    swipeStartX = null;
+    swipeStartY = null;
+    // Must be more horizontal than vertical, and exceed min distance
+    if(dy > SWIPE_MAX_Y) return;
+    if(Math.abs(dx) < SWIPE_MIN_X) return;
+    changeMonth(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
+</script>
+</body>
+</html>

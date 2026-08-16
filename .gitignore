@@ -1,0 +1,7 @@
+# 生成物 / 缓存 / 其他项目 —— 不进入仓库
+.build/
+.claude/
+App Develop/
+__pycache__/
+*.pyc
+.DS_Store

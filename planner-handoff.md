@@ -419,6 +419,11 @@ English, often mixed. Match them. Task titles are never translated either way (`
 code, run commands, or inspect files. Never end a reply with something for them to
 execute or verify. Do the work, check it yourself, and show the result.
 
+**R9.7 — Every reply carries both.** The user asked (2026-08-16) that **every** reply —
+not only change reports — include both the rendered `planner.html` and the `R10.1` URL.
+If the harness cannot render a local file inline, say so in the reply and give the file
+path instead; never drop either half.
+
 ---
 
 ## 10. Phone access — the published site

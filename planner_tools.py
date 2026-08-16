@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Tooling for planner.html — validation and the publishable build.
+"""Tooling for planner.html — validation and state dump.
 
-    python3 planner_tools.py            # validate, then build   <- the edit-loop command
-    python3 planner_tools.py validate   # validate only
-    python3 planner_tools.py build      # build only
+    python3 planner_tools.py validate   # validate only   <- the edit-loop command
     python3 planner_tools.py state      # print current data state + code counters
+    python3 planner_tools.py build      # legacy: build .build/planner-artifact.html
+
+The `build` command is retained for reference only. Since the 2026-08-16 migration to
+GitHub Pages (R10.1/R10.2), publishing is `git push` of `planner.html` itself; the
+derived artifact-host shim is obsolete and gitignored.
 
 Edit scripts import the two parser helpers from here:
 

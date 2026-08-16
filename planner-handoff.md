@@ -1,9 +1,9 @@
 # Planner Artifact — Operating Rules
 
 **Governs:** `planner.html` (single self-contained HTML file, ~2300 lines)
-**Tooling:** `planner_tools.py` (validation, publishable build, state dump)
-**Generated:** `.build/planner-artifact.html` (disposable — never edit, never treat as a source file)
-**Last updated:** 2026-08-14
+**Tooling:** `planner_tools.py` (validation, state dump)
+**Published:** GitHub Pages — `git push` to `huixin96f/Todo` auto-deploys `planner.html`
+**Last updated:** 2026-08-16
 
 This is the rules file for the planner artifact. Any session that edits, updates, or
 controls `planner.html` must read this file first and follow it. Rules are numbered so
@@ -20,7 +20,7 @@ folder and this file.
 
 ```bash
 python3 planner_tools.py state      # what the list currently holds
-python3 planner_tools.py            # confirm it validates and builds cleanly
+python3 planner_tools.py validate   # confirm it parses and has no duplicates
 ```
 
 `state` prints the live data, the earliest pending day, and the next free code for every
@@ -31,7 +31,8 @@ Then read §2 (the edit loop you must follow on every request), §3 (hard rules)
 (what the user's phrasing means). §10 covers the phone copy and the one thing you cannot
 derive from the folder: the published URL.
 
-Requirements: `python3` only. No `node`, no packages, no network, no build system.
+Requirements: `python3` and `git` only. No `node`, no packages, no network, no build
+system. Publishing is `git push` (§10) — no other step.
 
 **The user does not write code.** They direct in chat — usually in Chinese, sometimes
 English — and review the result visually. Never hand them a script to run, never ask them
@@ -85,7 +86,7 @@ If the harness genuinely cannot render a local file inline, **say so in the repl
 attach or link the file instead. Silently dropping half of this rule is the failure mode
 it exists to prevent.
 
-- Show both **after** validation passes and after the republish in `R2.6`, never before —
+- Show both **after** validation passes and after the push in `R2.6`, never before —
   the link must already point at the new state when the user taps it.
 - One of each per reply, even when the reply batches many changes.
 - This applies to every change, however small. There is no "too minor to show."
@@ -94,21 +95,20 @@ it exists to prevent.
 **R2.5 — Confirm briefly in text alongside the render.** A short line plus the resulting
 order — not a wall of explanation. See §9.
 
-**R2.6 — Rebuild and republish the mobile copy.** Every change also updates the phone
+**R2.6 — Commit and push after every change.** Every change also updates the phone
 version, in the same reply, so it can never silently go stale:
 
 ```bash
-python3 planner_tools.py            # validates, then builds
+python3 planner_tools.py validate   # R3.2 — never commit a broken file
+git add planner.html
+git commit -m "…"
+git push                            # GitHub Pages auto-deploys (§10)
 ```
 
-Then republish `.build/planner-artifact.html` to the URL in `R10.1`. See §10 for why the
-derived file exists and what the build script guarantees.
-
-Publishing is the one step that depends on the harness — in Claude Code it is the
-`Artifact` tool. **If the current harness cannot publish, do not skip it silently:** finish
-the edit, validate, show the file, and tell the user plainly that the phone copy is now
-behind and needs a session that can publish. A stale phone copy the user believes is
-current is worse than a reported failure.
+Publishing is `git push` and nothing else — the site rebuild takes a minute or two.
+**If the push fails, do not skip it silently:** finish the edit, validate, show the file,
+and tell the user plainly that the phone copy is now behind and needs a successful push.
+A stale phone copy the user believes is current is worse than a reported failure.
 
 ---
 
@@ -421,50 +421,34 @@ execute or verify. Do the work, check it yourself, and show the result.
 
 ---
 
-## 10. Mobile access — the published artifact
+## 10. Phone access — the published site
 
-The user reads the planner on their phone at a private claude.ai artifact URL:
+The user reads the planner on their phone at:
 
-**`https://claude.ai/code/artifact/2d28a417-1679-4b5b-85b7-e712a5bf7659`**
+**`https://huixin96f.github.io/Todo/planner.html`**
 
-**R10.1 — Always republish to that same URL.** In a conversation that already published
-it, republishing the same file path keeps the URL. From any other conversation, pass the
-URL as the `url` parameter — otherwise a new URL is minted and the user's bookmark goes
-stale. Never change the `favicon` (🗓️); the user finds the tab by its icon.
+**R10.1 — Publishing is `git push`, nothing else.** The public repo `huixin96f/Todo`
+(main branch, root path) auto-deploys to GitHub Pages; the URL above is permanent and
+must never change. Never mint a different URL for this planner.
 
-**R10.2 — Publish `.build/planner-artifact.html`, never `planner.html`.** The artifact host
-wraps the given file in its own `<!doctype>/<head>/<body>` skeleton. Publishing the full
-document would nest a second `<head>` inside a `<body>`; the parser discards it along
-with the viewport meta, and the calendar renders at desktop width on a phone.
-`planner_tools.py` derives the publishable file — it lifts out the `<style>` and the
-`<body>` contents and re-roots the two `body` CSS rules onto `#planner-root`.
+**R10.2 — Serve `planner.html` itself, never `.build/`.** `.build/planner-artifact.html`
+was a shim for the old claude.ai artifact host — nested-head workaround, viewport
+re-rooting, region-specific ASCII escaping. GitHub Pages serves the source file directly
+(it carries its own `<meta charset>` and viewport), so the derived file is obsolete for
+publishing and is gitignored. Do not reintroduce it.
 
-**R10.3 — The derived file must stay pure ASCII.** Dropping the head also drops
-`<meta charset="UTF-8">`, and a `<meta>` in the body is too late for the parser's
-encoding prescan — verified failure: task titles rendered as `æ´—åºŠå•` instead of
-`洗床单`. The build script escapes to ASCII so the page is correct under any charset,
-and the escaping is **region-specific**, because HTML entities are not decoded inside
-`<script>` or `<style>`:
-
-| Region | Escape |
-|--------|--------|
-| `<script>` | JS `\uXXXX` (surrogate pairs for astral chars) |
-| `<style>` | non-ASCII only ever appears in comments → transliterated |
-| markup | HTML numeric refs, `&#NNNN;` |
-
-The script asserts all of this and exits non-zero rather than emitting something subtly
-wrong: it fails if the two `body{` rules aren't found, if a document-level tag leaks
-into the output, if the output isn't ASCII, or if non-ASCII appears in CSS *outside* a
-comment (e.g. a new `content:"✓"`, which would need a real `\XXXX` CSS escape instead).
-
-**R10.4 — The build is an extraction, never a redesign.** `R7.1` applies to it
-in full. If the artifact needs to look different, change `planner.html`.
-
-**R10.5 — On the phone it is a viewer.** Drag/reorder works in the session but nothing
+**R10.3 — On the phone it is a viewer.** Drag/reorder works in the session but nothing
 persists on reload, exactly as on desktop (`R1.2`). Task changes still go through chat.
 
-**R10.6 — The artifact is private.** It contains family loan details, CRA tax amounts,
-and phone numbers. Do not share the link or suggest sharing it.
+**R10.4 — The site and repo are PUBLIC.** The user chose a public repo on 2026-08-16
+(GitHub Free cannot run Pages on a private one). The page contains family loan details,
+CRA tax amounts, and phone numbers — anyone with the link, or the repo, can see them.
+Never suggest sharing the link. Never push any other private content into this repo.
+
+**R10.5 — Migration history.** 2026-08-16: migrated from a private claude.ai artifact
+URL to GitHub Pages, per the standard migration flow (PAT with Contents + Administration
+write, repo made public, Pages enabled from main, `.nojekyll` added). The old URL
+`https://claude.ai/code/artifact/2d28a417-…` is dead; do not republish to it.
 
 ---
 

@@ -434,7 +434,9 @@ The user reads the planner on their phone at:
 
 **R10.1 — Publishing is `git push`, nothing else.** The public repo `huixin96f/Todo`
 (main branch, root path) auto-deploys to GitHub Pages; the URL above is permanent and
-must never change. Never mint a different URL for this planner.
+must never change. Never mint a different URL for this planner. Authentication is an
+SSH key (`git@github.com:huixin96f/Todo.git`, key `huixin96f@outlook.com`, added to the
+account 2026-08-16) — no PAT needed; never create one for this repo.
 
 **R10.2 — Serve `planner.html` itself, never `.build/`.** `.build/planner-artifact.html`
 was a shim for the old claude.ai artifact host — nested-head workaround, viewport

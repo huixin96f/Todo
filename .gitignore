@@ -4,4 +4,4 @@
 App Develop/
 __pycache__/
 *.pyc
-.DS_Store
+.DS_Store.playwright-mcp/

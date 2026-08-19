@@ -238,6 +238,9 @@ def preview(port=8899):
     Mirrors the Workout Tracker `preview` convention (2026-08-16). The source
     file is a full HTML document with its own <head>, so it is served as-is —
     no host-mimicking skeleton needed, unlike the old artifact-host build.
+    ThreadingHTTPServer: a hung browser connection (observed once on 2026-08-18,
+    CLOSE_WAIT pile-up froze the single-threaded server) must not block the
+    whole preview.
     """
     import http.server
     import socketserver
@@ -252,7 +255,8 @@ def preview(port=8899):
             pass
 
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("127.0.0.1", port), H) as httpd:
+    with http.server.ThreadingHTTPServer(("127.0.0.1", port), H) as httpd:
+        httpd.daemon_threads = True
         print("preview at http://127.0.0.1:%d/planner.html (ctrl-c to stop)" % port)
         httpd.serve_forever()
 

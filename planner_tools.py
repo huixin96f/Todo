@@ -72,6 +72,59 @@ def validate(html):
         else:
             print("%s duplicates: none" % name)
 
+    events = arrays.get("EVENTS")
+    pool = arrays.get("POOL")
+    if events is not None and pool is not None:
+        overlap = sorted({e.get("code") for e in events} & {e.get("code") for e in pool} - {None})
+        if overlap:
+            print("EVENTS/POOL CROSS DUPLICATES: %s" % ", ".join(overlap))
+            ok = False
+        else:
+            print("EVENTS/POOL overlap: none")
+
+    cat_prefix = {name: p for p, name in PREFIXES}
+    code_re = re.compile(r"^[A-Z]\d+$")
+    for name in ("EVENTS", "POOL"):
+        if name not in arrays:
+            continue
+        bad = []
+        for x in arrays[name]:
+            c = x.get("code")
+            if not c or not code_re.fullmatch(c):
+                bad.append("%s(invalid)" % (c or "?"))
+                continue
+            want = cat_prefix.get(x.get("category"))
+            if want and not c.startswith(want):
+                bad.append("%s(%s)" % (c, x.get("category")))
+        if bad:
+            print("%s CODE/CATEGORY: %s" % (name, ", ".join(bad)))
+            ok = False
+        else:
+            print("%s code/category: OK" % name)
+
+    if events is not None:
+        by_day = {}
+        for e in events:
+            if e.get("status") == "Pending":
+                by_day.setdefault(e.get("date"), []).append(e.get("order"))
+        order_bad = []
+        for d, orders in sorted(by_day.items()):
+            got = sorted(o if o is not None else 99 for o in orders)
+            if got != list(range(len(orders))):
+                order_bad.append("%s%s" % (d, got))
+        if order_bad:
+            print("PENDING ORDER: %s" % "; ".join(order_bad))
+            ok = False
+        else:
+            print("pending orders: OK")
+        no_doneat = [e.get("code") for e in events
+                     if e.get("status") == "Done" and not e.get("doneAt")]
+        if no_doneat:
+            print("DONE MISSING doneAt: %s" % ", ".join(no_doneat))
+            ok = False
+        else:
+            print("doneAt present: OK")
+
     print("\nAll checks passed." if ok else "\nFIX REQUIRED.")
     return ok
 

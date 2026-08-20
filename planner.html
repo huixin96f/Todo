@@ -1799,7 +1799,7 @@ function eventsForDate(k){
 
 /* Assign order to newly added events on a date */
 function assignOrder(ev, date){
-  const existing = EVENTS.filter(e=>e.date===date && e.code!==ev.code);
+  const existing = EVENTS.filter(e=>e.date===date && e.status==='Pending' && e.code!==ev.code);
   const maxOrder = existing.length ? Math.max(...existing.map(e=>e.order??0)) : -1;
   ev.order = maxOrder + 1;
 }
@@ -1968,8 +1968,7 @@ function finish(x, y){
    then reassigns order values 0,1,2,…
    ═══════════════════════════════════════════════ */
 function applyReorder(dragCode, date, targetCode, pos){
-  // Get all events on this date in current order
-  const dayEvs = eventsForDate(date); // already sorted by order
+  const dayEvs = eventsForDate(date).filter(e=>e.status==='Pending');
   if(dayEvs.length<2) return;
 
   // Remove dragged item from list
@@ -2011,13 +2010,7 @@ function dropOnDate(code, source, targetDate){
     EVENTS.push(item);
     assignOrder(item, targetDate);
   } else if(source==='longterm'){
-    const idx=LONGTERM.findIndex(e=>e.title===code); if(idx===-1) return;
-    const [item]=LONGTERM.splice(idx,1);
-    item.date=targetDate;
-    item.code=item.code||'?';
-    item.category=item.category||'Task';
-    EVENTS.push(item);
-    assignOrder(item, targetDate);
+    return;
   }
   renderAll();
   if(selectedDate) selectDay(selectedDate);
@@ -2032,10 +2025,7 @@ function dropOnPool(code, source){
     POOL.push(item);
     if(selectedDate) closePanel();
   } else if(source==='longterm'){
-    const idx=LONGTERM.findIndex(e=>e.title===code); if(idx===-1) return;
-    const [item]=LONGTERM.splice(idx,1);
-    item.code=item.code||'?'; item.category=item.category||'Task';
-    POOL.push(item);
+    return;
   }
   renderAll();
 }

@@ -127,8 +127,11 @@ This machine has no `node`, only `/usr/bin/python3`. Run:
 python3 planner_tools.py validate
 ```
 
-It checks that `EVENTS`, `POOL`, and `LONGTERM` all parse, and that `EVENTS` and `POOL`
-contain no duplicate codes. Hand back the file only on `All checks passed.`
+It checks that `EVENTS`, `POOL`, and `LONGTERM` all parse; that `EVENTS` and `POOL`
+contain no duplicate codes (within each array and across both); that every code matches
+its category prefix (`T`/`P`/`F`/… + digits, never `?`); that each day's Pending `order`
+values are exactly `0..n-1`; and that every Done item has `doneAt`. Hand back the file
+only on `All checks passed.`
 
 This rule exists because of real failures: missing trailing commas broke the file twice,
 and stale leftover blocks created duplicate entries (T22/T24/P6/T21 once; F8/F9 once).
@@ -366,7 +369,9 @@ must leave all of the following intact.
   **except** the currently selected day's. `renderScheduled()` must be called inside both
   `selectDay()` and `closePanel()`, otherwise the filter silently doesn't apply.
 - **Drag & drop** — cross-date / pool / longterm moves plus within-day reorder with a
-  blue insert line.
+  blue insert line. `applyReorder` rewrites **Pending only** (Done keep `order` 100+).
+  Long-term items cannot be dropped onto a date or the pool — they have no code, and
+  synthesizing `?` is forbidden. Code assignment stays in the chat edit loop.
 - **Mobile long-press drag** — touch drag activates only after a 300 ms hold
   (`LONG_PRESS_MS`), cancelled if the finger moves more than 6 px (`LONG_PRESS_SLOP`).
   This is what lets normal swipes scroll the page instead of grabbing a card. A

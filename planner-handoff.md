@@ -248,15 +248,15 @@ list below, so it cannot drift. The table is a convenience copy only:
 | Prefix | Category | Next |
 |--------|----------|------|
 | T | Task | **T115** |
-| P | Personal | **P50** |
+| P | Personal | **P54** |
 | F | Follow-up | **F12** |
 | M | Meeting | **M5** |
 | S | Site Visit | **S4** |
 | C | Call | **C1** |
 | R | Review | **R2** |
 
-Deleted/retired codes (do not reuse): F1, F3, P4, P7, P12, P42, T16, T20, T25, T43,
-T89, T98, R1.
+Deleted/retired codes (do not reuse): F1, F3, P4, P7, P12, P42, P50, P51, P53, T16,
+T20, T25, T43, T89, T98, R1.
 
 > **F4 was previously listed as retired here in error.** It is a live `Done` record dated
 > 2026-06-25, still in `EVENTS`. Verified against the data and removed from the list on

@@ -235,7 +235,7 @@ def build(html):
 
 # R5.1: retired codes are never reused and gaps are never filled, so the high-water
 # mark has to include codes no longer present in the data.
-RETIRED = {'F1', 'F3', 'P4', 'P7', 'P12', 'P42',
+RETIRED = {'F1', 'F3', 'P4', 'P7', 'P12', 'P42', 'P50', 'P51', 'P53',
            'T16', 'T20', 'T25', 'T43', 'T89', 'T98', 'R1'}
 
 PREFIXES = [('T', 'Task'), ('P', 'Personal'), ('F', 'Follow-up'), ('M', 'Meeting'),
